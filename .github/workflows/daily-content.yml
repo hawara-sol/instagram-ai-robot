@@ -1,0 +1,96 @@
+name: AI Daily Content
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 18 * * *"
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Generate today's Instagram Reel script
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          python - <<'PY'
+          import os
+          import json
+          import urllib.request
+          from datetime import date
+
+          api_key = os.environ["GEMINI_API_KEY"]
+
+          prompt = """
+          You are the AI content strategist for a faceless Instagram account.
+
+          Niche:
+          AI tools, technology, digital products, and online skills.
+
+          Audience:
+          English-speaking people who want to learn useful AI tools and
+          practical ways to use technology.
+
+          Create ONE Instagram Reel idea for today.
+
+          Requirements:
+          - 20 to 35 seconds
+          - Strong hook in the first sentence
+          - Easy English
+          - Useful, not fake hype
+          - No guaranteed income claims
+          - No misleading claims
+          - End with a simple follow CTA
+
+          Return exactly:
+          TITLE:
+          HOOK:
+          SCRIPT:
+          CTA:
+          """
+
+          url = (
+              "https://generativelanguage.googleapis.com/"
+              "v1beta/models/gemini-3.8-flash:generateContent"
+          )
+
+          data = {
+              "contents": [
+                  {
+                      "parts": [
+                          {"text": prompt}
+                      ]
+                  }
+              ]
+          }
+
+          request = urllib.request.Request(
+              url,
+              data=json.dumps(data).encode("utf-8"),
+              headers={
+                  "Content-Type": "application/json",
+                  "x-goog-api-key": api_key
+              },
+              method="POST"
+          )
+
+          with urllib.request.urlopen(request) as response:
+              result = json.load(response)
+
+          text = result["candidates"][0]["content"]["parts"][0]["text"]
+
+          with open("daily_reel.txt", "w", encoding="utf-8") as f:
+              f.write(
+                  f"DATE: {date.today()}\n\n"
+                  + text
+              )
+
+          print(text)
+          PY
+
+      - name: Save today's script
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-reel-script
+          path: daily_reel.txt
